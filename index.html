@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode and QR Code Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+</head>
+<body>
+    <input type="text" id="text" placeholder="Enter text" autofocus />
+    <select id="barcodeType" onchange="updateOutputType()">
+        <option value="qr">QR Code</option>
+        <option value="code128">Code 128</option>
+        <option value="ean">EAN</option>
+        <option value="upc">UPC</option>
+    </select>
+    <select id="outputType">
+        <option value="image">Image</option>
+        <option value="text">Text</option>
+    </select>
+    <input type="number" id="size" placeholder="Enter size (default is 200)" />
+    <button onclick="generateCode()">Generate Code</button>
+    <div id="output">
+        <img id="codeImage" alt="Generated Code" style="display:none;">
+        <canvas id="codeCanvas" style="display:none;"></canvas>
+        <svg id="codeSvg" style="display:none;"></svg>
+    </div>
+    <div id="error" style="color:red;"></div>
+    <div style="font-size: 0.8em; color: lightgrey;">
+        Version 1.08
+    </div>
+    <script>
+        function updateOutputType() {
+            var barcodeType = document.getElementById('barcodeType').value;
+            var outputType = document.getElementById('outputType');
+            if (barcodeType === 'qr') {
+                outputType.innerHTML = '<option value="image">Image</option><option value="text">Text</option>';
+            } else {
+                outputType.innerHTML = '<option value="image">Image</option><option value="svg">SVG</option>';
+            }
+        }
+
+        function generateCode() {
+            var text = document.getElementById('text').value;
+            var type = document.getElementById('barcodeType').value;
+            var outputType = document.getElementById('outputType').value;
+            var size = document.getElementById('size').value || 200;
+            var codeImage = document.getElementById('codeImage');
+            var codeCanvas = document.getElementById('codeCanvas');
+            var codeSvg = document.getElementById('codeSvg');
+            var errorMessage = document.getElementById('error');
+            codeImage.style.display = 'none';
+            codeCanvas.style.display = 'none';
+            codeSvg.style.display = 'none';
+            errorMessage.textContent = '';
+
+            try {
+                if (text.trim() === '') {
+                    throw new Error('Text input is empty.');
+                }
+
+                if (type === 'upc' && text.length !== 11) {
+                    throw new Error('UPC code must be 11 digits.');
+                }
+
+                if (type === 'qr') {
+                    var qrCanvas = document.createElement('canvas');
+                    new QRious({
+                        element: qrCanvas,
+                        value: text,
+                        size: size
+                    });
+                    if (outputType === 'image') {
+                        codeImage.src = qrCanvas.toDataURL("image/png");
+                        codeImage.style.display = 'block';
+                    } else {
+                        codeCanvas.width = qrCanvas.width;
+                        codeCanvas.height = qrCanvas.height;
+                        var ctx = codeCanvas.getContext('2d');
+                        ctx.drawImage(qrCanvas, 0, 0);
+                        codeCanvas.style.display = 'block';
+                    }
+                } else {
+                    var barcodeSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                    JsBarcode(barcodeSvg, text, {
+                        format: type,
+                        width: size / 100,
+                        height: size
+                    });
+                    if (outputType === 'image') {
+                        var svgData = new XMLSerializer().serializeToString(barcodeSvg);
+                        var svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+                        var url = URL.createObjectURL(svgBlob);
+                        var img = new Image();
+                        img.onload = function() {
+                            var canvas = document.createElement('canvas');
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            var ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            codeImage.src = canvas.toDataURL("image/png");
+                            codeImage.style.display = 'block';
+                            URL.revokeObjectURL(url);
+                        };
+                        img.src = url;
+                    } else {
+                        codeSvg.innerHTML = '';
+                        codeSvg.appendChild(barcodeSvg);
+                        codeSvg.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
